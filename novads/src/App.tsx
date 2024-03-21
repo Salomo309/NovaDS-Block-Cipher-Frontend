@@ -41,11 +41,8 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target && event.target.result) {
-          const binaryString = event.target.result.toString();
-          const binaryArray: number[] = [];
-          for (let i = 0; i < binaryString.length; i++) {
-            binaryArray.push(parseInt(binaryString.charAt(i)));
-          }
+          const textContent = event.target.result.toString();
+          const binaryArray = textToBinary(textContent);
           resolve(binaryArray);
         } else {
           reject(new Error('Failed to read file'));
@@ -54,7 +51,7 @@ const App: React.FC = () => {
       reader.onerror = (event) => {
         reject(new Error('Failed to read file'));
       };
-      reader.readAsBinaryString(file);
+      reader.readAsText(file);
     });
   };
 
@@ -73,8 +70,9 @@ const App: React.FC = () => {
       };
     } else {
       if (file) {
+        const binaryArray = await fileToBinaryArray(file);
         requestData = {
-          'text-array': fileToBinaryArray(file),
+          'text-array': binaryArray,
           'key-array': textToBinary(key),
           'encrypt': true
         };
@@ -85,6 +83,8 @@ const App: React.FC = () => {
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
     }
+
+    console.log(requestData['text-array'])
 
     try {
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
@@ -113,7 +113,7 @@ const App: React.FC = () => {
     } else {
       if (file) {
         requestData = {
-          'text-array': fileToBinaryArray(file),
+          'text-array': await fileToBinaryArray(file),
           'key-array': textToBinary(key),
           'encrypt': true
         };
@@ -154,6 +154,35 @@ const App: React.FC = () => {
         alert('Only text files (text/plain) are allowed.');
       }
     }
+  };
+
+  const handleDownload = () => {
+    if (!result) {
+      alert('No result to download. Please encrypt or decrypt first.');
+      return;
+    }
+
+    let content: string;
+
+    if (inputType === 'text') {
+      content = result;
+    } else {
+      if (result && result !== 'Failed to encrypt' && result !== 'Failed to decrypt') {
+        content = result;
+      } else {
+        alert('No result to download. Please encrypt or decrypt first.');
+        return;
+      }
+    }
+
+    const element = document.createElement('a');
+    const file = new Blob([content], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = 'result.txt';
+
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
 
@@ -266,6 +295,7 @@ const App: React.FC = () => {
         <div>
           <button
             className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 active:ring-green-600 active:ring-opacity-50"
+            onClick={handleDownload}
           >
             Download Result
           </button>
