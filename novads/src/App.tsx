@@ -10,83 +10,9 @@ const App: React.FC = () => {
   const [result, setResult] = useState('');
   const [initVector, setInitVector] = useState('');
 
-  const handleEncrypt = () => {
-    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
-      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
-      return;
-    }
-
-    let requestData: any = {
-      'text-array': textToBinary(text),
-      'key-array': textToBinary(key),
-      'init-vector': textToBinary(initVector),
-      'encrypt': true
-    };
-
-
-    if (!(mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
-      delete requestData['init-vector'];
-    }
-
-    axios.post('http://localhost:8080/api/' + mode, requestData)
-      .then(response => {
-        const resultText = binaryToText(response.data.ResultBitArray);
-        setResult(resultText);
-        console.log(response.data.ResultBitArray);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        setResult('Failed to encrypt');
-      });
-      console.log(requestData)
-    };
-
-  const handleDecrypt = () => {
-    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
-      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
-      return;
-    }
-
-    let requestData: any = {
-      'text-array': textToBinary(text),
-      'key-array': textToBinary(key),
-      'init-vector': textToBinary(initVector),
-      'encrypt': false
-    };
-
-    if (!(mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
-      delete requestData['init-vector'];
-    }
-
-
-    axios.post('http://localhost:8080/api/' + mode, requestData)
-    .then(response => {
-        const resultText = binaryToText(response.data.ResultBitArray);
-        setResult(resultText);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        setResult('Failed to decrypt');
-      });
-      console.log(requestData);
-  };
-
-  const handleInputTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setInputType(event.target.value);
-  };
-
-  const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setMode(event.target.value);
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setFile(event.target.files[0]);
-    }
-  };
-
   const textToBinary = (text: string): number[] => {
     const binaryArray: number[] = [];
+    console.log(text.length);
     for (let i = 0; i < text.length; i++) {
       const charCode = text.charCodeAt(i);
       const binaryString = charCode.toString(2);
@@ -100,12 +26,134 @@ const App: React.FC = () => {
   const binaryToText = (binaryArray: number[]): string => {
     let text = '';
     for (let i = 0; i < binaryArray.length; i += 8) {
-      const byte = binaryArray.slice(i, i + 8).join('');
-      const charCode = parseInt(byte, 2);
-      const char = String.fromCharCode(charCode);
-      text += char;
+        const byte = binaryArray.slice(i, i + 8).join('');
+        const charCode = parseInt(byte, 2);
+        if ((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) {
+            const char = String.fromCharCode(charCode);
+            text += char;
+        }
     }
     return text;
+  };
+
+  const fileToBinaryArray = (file: File): Promise<number[]> => {
+    return new Promise<number[]>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target && event.target.result) {
+          const binaryString = event.target.result.toString();
+          const binaryArray: number[] = [];
+          for (let i = 0; i < binaryString.length; i++) {
+            binaryArray.push(parseInt(binaryString.charAt(i)));
+          }
+          resolve(binaryArray);
+        } else {
+          reject(new Error('Failed to read file'));
+        }
+      };
+      reader.onerror = (event) => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsBinaryString(file);
+    });
+  };
+
+  const handleEncrypt = async () =>  {
+    let requestData: any;
+    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
+      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
+      return;
+    }
+
+    if (inputType === 'text') {
+      requestData = {
+        'text-array': textToBinary(text),
+        'key-array': textToBinary(key),
+        'encrypt': true
+      };
+    } else {
+      if (file) {
+        requestData = {
+          'text-array': fileToBinaryArray(file),
+          'key-array': textToBinary(key),
+          'encrypt': true
+        };
+      }
+    }
+
+
+    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
+      requestData['init-vector'] = textToBinary(initVector)
+    }
+
+    try {
+      const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
+      console.log(response)
+      const resultText = binaryToText(response.data['result-array']);
+      setResult(btoa(resultText));
+    } catch (error) {
+      console.error('Error:', error);
+      setResult('Failed to encrypt');
+    }
+  }
+
+  const handleDecrypt = async () =>  {
+    let requestData: any;
+    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
+      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
+      return;
+    }
+
+    if (inputType === 'text') {
+      requestData = {
+        'text-array': textToBinary(atob(text)),
+        'key-array': textToBinary(key),
+        'encrypt': true
+      };
+    } else {
+      if (file) {
+        requestData = {
+          'text-array': fileToBinaryArray(file),
+          'key-array': textToBinary(key),
+          'encrypt': true
+        };
+      }
+    }
+
+
+    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
+      requestData['init-vector'] = textToBinary(initVector)
+    }
+
+
+    try {
+      const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
+      console.log(response)
+      const resultText = binaryToText(response.data['result-array']);
+      setResult(resultText);
+    } catch (error) {
+      console.error('Error:', error);
+      setResult('Failed to decrypt');
+    }
+  };
+
+  const handleInputTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setInputType(event.target.value);
+  };
+
+  const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setMode(event.target.value);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const file = event.target.files[0];
+      if (file.type === 'text/plain') {
+        setFile(file);
+      } else {
+        alert('Only text files (text/plain) are allowed.');
+      }
+    }
   };
 
 
@@ -225,9 +273,9 @@ const App: React.FC = () => {
 
       <div className="flex flex-col mb-4">
         <label htmlFor="ciphertext" className="mb-2 text-lg">
-          Result: {result}
+          Result:
         </label>
-        no result yet
+        {result}
       </div>
     </div>
   );
