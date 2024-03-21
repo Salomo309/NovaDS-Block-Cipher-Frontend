@@ -241,6 +241,7 @@ const App: React.FC = () => {
           <input
             type="text"
             id="initVector"
+            value={initVector}
             className="border p-2 rounded-md bg-gray-700 focus:ring-blue-500 focus:ring-opacity-50"
             onChange={(e) => setInitVector(e.target.value)}
           />
