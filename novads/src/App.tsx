@@ -54,6 +54,26 @@ const App: React.FC = () => {
       reader.readAsText(file);
     });
   };
+  
+  const cipherFileToBinaryArray = (file: File): Promise<number[]> => {
+    return new Promise<number[]>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target && event.target.result) {
+          const base64textContent = event.target.result.toString();
+          const textContent = atob(base64textContent)
+          const binaryArray = textToBinary(textContent);
+          resolve(binaryArray);
+        } else {
+          reject(new Error('Failed to read file'));
+        }
+      };
+      reader.onerror = (event) => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsText(file);
+    });
+  };
 
   const handleEncrypt = async () =>  {
     let requestData: any;
@@ -127,7 +147,7 @@ const App: React.FC = () => {
     } else {
       if (file) {
         requestData = {
-          'text-array': await fileToBinaryArray(file),
+          'text-array': await cipherFileToBinaryArray(file),
           'key-array': textToBinary(key),
           'encrypt': false
         };
