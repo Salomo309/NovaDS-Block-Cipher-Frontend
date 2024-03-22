@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from "axios";
 
 const App: React.FC = () => {
@@ -12,7 +12,6 @@ const App: React.FC = () => {
 
   const textToBinary = (text: string): number[] => {
     const binaryArray: number[] = [];
-    console.log(text.length);
     for (let i = 0; i < text.length; i++) {
       const charCode = text.charCodeAt(i);
       const binaryString = charCode.toString(2);
@@ -26,12 +25,12 @@ const App: React.FC = () => {
   const binaryToText = (binaryArray: number[]): string => {
     let text = '';
     for (let i = 0; i < binaryArray.length; i += 8) {
-        const byte = binaryArray.slice(i, i + 8).join('');
-        const charCode = parseInt(byte, 2);
-        if ((charCode >= 65 && charCode <= 90) || (charCode >= 97 && charCode <= 122)) {
-            const char = String.fromCharCode(charCode);
-            text += char;
-        }
+      const byte = binaryArray.slice(i, i + 8).join('');
+      const charCode = parseInt(byte, 2);
+      if (charCode >= 0 && charCode <= 256) {
+        const char = String.fromCharCode(charCode);
+        text += char;
+      }
     }
     return text;
   };
@@ -79,17 +78,17 @@ const App: React.FC = () => {
       }
     }
 
+    console.log("Text to Encrypt: ", requestData['text-array'].length);
+
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
     }
 
-    console.log(requestData['text-array'])
-
     try {
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
-      console.log(response)
       const resultText = binaryToText(response.data['result-array']);
+      console.log("Encrypt Result: ", response.data['result-array'].length);
       setResult(btoa(resultText));
     } catch (error) {
       console.error('Error:', error);
@@ -120,6 +119,8 @@ const App: React.FC = () => {
       }
     }
 
+    console.log("Text to Decrypt", (requestData['text-array'].length))
+
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
@@ -128,8 +129,8 @@ const App: React.FC = () => {
 
     try {
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
-      console.log(response)
       const resultText = binaryToText(response.data['result-array']);
+      console.log("Decrypt Result: ", (response.data['result-array'].length))
       setResult(resultText);
     } catch (error) {
       console.error('Error:', error);
@@ -184,6 +185,14 @@ const App: React.FC = () => {
     element.click();
     document.body.removeChild(element);
   };
+
+  useEffect(() => {
+    const binaryArray = textToBinary(text);
+    console.log('Text:', text);
+
+    const textFromBinary = binaryToText(binaryArray);
+    console.log('Text from Binary:', textFromBinary);
+  }, [text]);
 
 
 
