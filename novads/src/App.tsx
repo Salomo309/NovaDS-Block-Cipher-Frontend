@@ -9,6 +9,7 @@ const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState('');
   const [initVector, setInitVector] = useState('');
+  const [duration, setDuration] = useState<number | null>(null);
 
   const textToBinary = (text: string): number[] => {
     const binaryArray: number[] = [];
@@ -56,8 +57,14 @@ const App: React.FC = () => {
 
   const handleEncrypt = async () =>  {
     let requestData: any;
-    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
-      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
+    if (key.length !== 16) {
+      setResult("Failed to Encrypt")
+      alert('Key must be 16 characters long for CBC, CFB, and OFB modes.');
+      return;
+    }
+
+    if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (initVector.length !== 16)) {
+      alert('Initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
       return;
     }
 
@@ -78,17 +85,19 @@ const App: React.FC = () => {
       }
     }
 
-    console.log("Text to Encrypt: ", requestData['text-array'].length);
-
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
     }
 
     try {
+      const startTime = new Date().getTime();
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
+      const endTime = new Date().getTime();
+
+      setDuration(endTime - startTime);
+
       const resultText = binaryToText(response.data['result-array']);
-      console.log("Encrypt Result: ", response.data['result-array'].length);
       setResult(btoa(resultText));
     } catch (error) {
       console.error('Error:', error);
@@ -98,8 +107,14 @@ const App: React.FC = () => {
 
   const handleDecrypt = async () =>  {
     let requestData: any;
+    if (key.length !== 16) {
+      setResult("Failed to Decrypt")
+      alert('Key must be 16 characters long for CBC, CFB, and OFB modes.');
+      return;
+    }
+
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
-      alert('Key and initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
+      alert('Initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
       return;
     }
 
@@ -107,19 +122,17 @@ const App: React.FC = () => {
       requestData = {
         'text-array': textToBinary(atob(text)),
         'key-array': textToBinary(key),
-        'encrypt': true
+        'encrypt': false
       };
     } else {
       if (file) {
         requestData = {
           'text-array': await fileToBinaryArray(file),
           'key-array': textToBinary(key),
-          'encrypt': true
+          'encrypt': false
         };
       }
     }
-
-    console.log("Text to Decrypt", (requestData['text-array'].length))
 
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
@@ -128,9 +141,13 @@ const App: React.FC = () => {
 
 
     try {
+      const startTime = new Date().getTime();
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
+      const endTime = new Date().getTime();
+
+      setDuration(endTime - startTime);
+
       const resultText = binaryToText(response.data['result-array']);
-      console.log("Decrypt Result: ", (response.data['result-array'].length))
       setResult(resultText);
     } catch (error) {
       console.error('Error:', error);
@@ -185,14 +202,6 @@ const App: React.FC = () => {
     element.click();
     document.body.removeChild(element);
   };
-
-  useEffect(() => {
-    const binaryArray = textToBinary(text);
-    console.log('Text:', text);
-
-    const textFromBinary = binaryToText(binaryArray);
-    console.log('Text from Binary:', textFromBinary);
-  }, [text]);
 
 
 
@@ -313,7 +322,7 @@ const App: React.FC = () => {
 
       <div className="flex flex-col mb-4">
         <label htmlFor="ciphertext" className="mb-2 text-lg">
-          Result:
+          Result: {duration ?? 0} ms
         </label>
         {result}
       </div>
