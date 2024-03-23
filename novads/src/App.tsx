@@ -10,6 +10,8 @@ const App: React.FC = () => {
   const [result, setResult] = useState('');
   const [initVector, setInitVector] = useState('');
   const [duration, setDuration] = useState<number | null>(null);
+  const [fileType, setFileType] = useState<string>('txt');
+  const [fileName, setFileName] = useState<string>('');
 
   const textToBinary = (text: string): number[] => {
     const binaryArray: number[] = [];
@@ -41,8 +43,10 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target && event.target.result) {
+          console.log(event.target.result.toString())
           const textContent = event.target.result.toString();
           const binaryArray = textToBinary(textContent);
+          console.log(binaryArray)
           resolve(binaryArray);
         } else {
           reject(new Error('Failed to read file'));
@@ -54,12 +58,13 @@ const App: React.FC = () => {
       reader.readAsText(file);
     });
   };
-  
+
   const cipherFileToBinaryArray = (file: File): Promise<number[]> => {
     return new Promise<number[]>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target && event.target.result) {
+          console.log(event.target.result.toString())
           const base64textContent = event.target.result.toString();
           const textContent = atob(base64textContent)
           const binaryArray = textToBinary(textContent);
@@ -186,11 +191,10 @@ const App: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
-      if (file.type === 'text/plain') {
-        setFile(file);
-      } else {
-        alert('Only text files (text/plain) are allowed.');
-      }
+      const extension = file.type || 'txt';
+      setFileType(extension);
+      setFileName(file.name)
+      setFile(file);
     }
   };
 
@@ -213,10 +217,11 @@ const App: React.FC = () => {
       }
     }
 
+    const extension = fileName.split('.').pop()?.toLowerCase()
     const element = document.createElement('a');
-    const file = new Blob([content], { type: 'text/plain' });
+    const file = new Blob([content], { type: `${fileType}` });
     element.href = URL.createObjectURL(file);
-    element.download = 'result.txt';
+    element.download = `result.${extension}`;
 
     document.body.appendChild(element);
     element.click();
@@ -226,7 +231,7 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-800 text-gray-200 h-[43.453rem]">
+    <div className="container mx-auto px-4 py-8 bg-gray-800 text-gray-200 h-max">
       <h1 className="text-3xl font-bold mb-6">Welcome to Nova DS!</h1>
 
       <div className="flex flex-col mb-4">
@@ -344,7 +349,11 @@ const App: React.FC = () => {
         <label htmlFor="ciphertext" className="mb-2 text-lg">
           Result: {duration ?? 0} ms
         </label>
-        {result}
+        <div className="w-full">
+          <pre className="whitespace-pre-wrap overflow-x-auto break-words">
+            {result}
+          </pre>
+      </div>
       </div>
     </div>
   );
