@@ -7,12 +7,14 @@ const App: React.FC = () => {
   const [key, setKey] = useState('');
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState('');
   const [initVector, setInitVector] = useState('');
-  const [duration, setDuration] = useState<number | null>(null);
-  const [fileType, setFileType] = useState<string>('txt');
+  const [fileType, setFileType] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
+  const [result, setResult] = useState<number[]>();
+  const [resultShow, setResultShow] = useState<string>('')
+  const [duration, setDuration] = useState<number | null>(null);
 
+  /* TEXT CONVERTER */
   const textToBinary = (text: string): number[] => {
     const binaryArray: number[] = [];
     for (let i = 0; i < text.length; i++) {
@@ -38,15 +40,23 @@ const App: React.FC = () => {
     return text;
   };
 
+  /* FILE CONVERTER */
   const fileToBinaryArray = (file: File): Promise<number[]> => {
     return new Promise<number[]>((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = (event) => {
-        if (event.target && event.target.result) {
-          console.log(event.target.result.toString())
-          const textContent = event.target.result.toString();
-          const binaryArray = textToBinary(textContent);
-          console.log(binaryArray)
+        if (event.target) {
+          const buffer = new Uint8Array(event.target.result as ArrayBuffer)
+          const binaryArray: number[] = [];
+
+          buffer.forEach(byte => {
+            const binaryString = byte.toString(2).padStart(8, '0');
+            for (let i = 0; i < binaryString.length; i++) {
+              binaryArray.push(Number(binaryString[i]));
+            }
+          });
+
           resolve(binaryArray);
         } else {
           reject(new Error('Failed to read file'));
@@ -55,40 +65,38 @@ const App: React.FC = () => {
       reader.onerror = (event) => {
         reject(new Error('Failed to read file'));
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     });
   };
 
-  const cipherFileToBinaryArray = (file: File): Promise<number[]> => {
-    return new Promise<number[]>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target && event.target.result) {
-          console.log(event.target.result.toString())
-          const base64textContent = event.target.result.toString();
-          const textContent = atob(base64textContent)
-          const binaryArray = textToBinary(textContent);
-          resolve(binaryArray);
-        } else {
-          reject(new Error('Failed to read file'));
-        }
-      };
-      reader.onerror = (event) => {
-        reject(new Error('Failed to read file'));
-      };
-      reader.readAsText(file);
-    });
+  /* uint8 Array CONVERTER*/
+  const binaryArrayToUint8Array = (binaryArray: number[]): Uint8Array => {
+    const byteLength = binaryArray.length / 8;
+    const uint8Array = new Uint8Array(byteLength);
+  
+    for (let i = 0; i < binaryArray.length; i++) {
+      const byteIndex = Math.floor(i / 8);
+      const bitOffset = i % 8;
+  
+      if (binaryArray[i] === 1) {
+        uint8Array[byteIndex] |= (1 << (7 - bitOffset));
+      }
+    }
+  
+    return uint8Array;
   };
 
+  /* ENCRYPTION AND DECRYPTION HANDLER FUNCTION*/
   const handleEncrypt = async () =>  {
     let requestData: any;
     if (key.length !== 16) {
-      setResult("Failed to Encrypt")
-      alert('Key must be 16 characters long for CBC, CFB, and OFB modes.');
+      setResultShow("Failed to Encrypt")
+      alert('Key must be 16 characters long.');
       return;
     }
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (initVector.length !== 16)) {
+      setResultShow("Failed to Encrypt")
       alert('Initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
       return;
     }
@@ -99,46 +107,56 @@ const App: React.FC = () => {
         'key-array': textToBinary(key),
         'encrypt': true
       };
-    } else {
+    } 
+    else {
       if (file) {
-        const binaryArray = await fileToBinaryArray(file);
         requestData = {
-          'text-array': binaryArray,
+          'text-array': await fileToBinaryArray(file),
           'key-array': textToBinary(key),
           'encrypt': true
         };
       }
     }
 
-
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
     }
 
     try {
+      setResultShow("Encrypting, please wait a minute...")
       const startTime = new Date().getTime();
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
       const endTime = new Date().getTime();
 
       setDuration(endTime - startTime);
-
-      const resultText = binaryToText(response.data['result-array']);
-      setResult(btoa(resultText));
+      if (inputType === 'text') {
+        setResult(response.data['result-array']);
+        setResultShow(btoa(binaryToText(response.data['result-array'])))
+      } 
+      else {
+        setResult(response.data['result-array']);
+        if (response.data['result-array'].length > 2000) {
+          setResultShow("Please view the file instead")
+        }
+        else {
+          setResultShow(btoa(binaryToText(response.data['result-array'])))
+        }
+      }
     } catch (error) {
-      console.error('Error:', error);
-      setResult('Failed to encrypt');
+      setResultShow('Failed to Encrypt');
     }
   }
 
   const handleDecrypt = async () =>  {
     let requestData: any;
     if (key.length !== 16) {
-      setResult("Failed to Decrypt")
-      alert('Key must be 16 characters long for CBC, CFB, and OFB modes.');
+      setResultShow("Failed to Decrypt")
+      alert('Key must be 16 characters long.');
       return;
     }
 
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb') && (key.length !== 16 || initVector.length !== 16)) {
+      setResultShow("Failed to Decrypt")
       alert('Initialization vector must be 16 characters long for CBC, CFB, and OFB modes.');
       return;
     }
@@ -149,37 +167,48 @@ const App: React.FC = () => {
         'key-array': textToBinary(key),
         'encrypt': false
       };
-    } else {
+    } 
+    else {
       if (file) {
         requestData = {
-          'text-array': await cipherFileToBinaryArray(file),
+          'text-array': await fileToBinaryArray(file),
           'key-array': textToBinary(key),
           'encrypt': false
         };
       }
     }
 
-
     if ((mode === 'cbc' || mode === 'cfb' || mode === 'ofb')) {
       requestData['init-vector'] = textToBinary(initVector)
     }
 
-
     try {
+      setResultShow("Decrypting, please wait a minute...")
       const startTime = new Date().getTime();
       const response = await axios.post('http://localhost:8080/api/' + mode, requestData);
       const endTime = new Date().getTime();
 
       setDuration(endTime - startTime);
-
-      const resultText = binaryToText(response.data['result-array']);
-      setResult(resultText);
+      if (inputType === 'text') {
+        setResult(response.data['result-array']);
+        setResultShow(binaryToText(response.data['result-array']))
+      } 
+      else {
+        setResult(response.data['result-array']);
+        if (response.data['result-array'].length > 2000) {
+          setResultShow("Please view the file instead")
+        }
+        else {
+          setResultShow(btoa(binaryToText(response.data['result-array'])))
+        }
+      }
     } catch (error) {
       console.error('Error:', error);
-      setResult('Failed to decrypt');
+      setResultShow('Failed to Decrypt');
     }
   };
 
+  /* CHANGE HANDLER FUNCTION */
   const handleInputTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setInputType(event.target.value);
   };
@@ -189,12 +218,12 @@ const App: React.FC = () => {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      const file = event.target.files[0];
-      const extension = file.type || 'txt';
-      setFileType(extension);
+    const file = event.target.files?.[0];
+    
+    if (file) {
+      setFileType(file.type)
       setFileName(file.name)
-      setFile(file);
+      setFile(file)
     }
   };
 
@@ -204,30 +233,28 @@ const App: React.FC = () => {
       return;
     }
 
-    let content: string;
+    let content = binaryArrayToUint8Array(result);
 
-    if (inputType === 'text') {
-      content = result;
-    } else {
-      if (result && result !== 'Failed to encrypt' && result !== 'Failed to decrypt') {
-        content = result;
-      } else {
-        alert('No result to download. Please encrypt or decrypt first.');
-        return;
-      }
+    if (fileType != '') {
+      const blob = new Blob([content as Uint8Array], { type: fileType });
+      const downloadFile = new File([blob], fileName, { type: fileType } )
+      const element = document.createElement('a');
+      element.href = URL.createObjectURL(downloadFile)
+      element.download = `result-${fileName}`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     }
-
-    const extension = fileName.split('.').pop()?.toLowerCase()
-    const element = document.createElement('a');
-    const file = new Blob([content], { type: `${fileType}` });
-    element.href = URL.createObjectURL(file);
-    element.download = `result.${extension}`;
-
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    else {
+      const downloadFile = new Blob([new TextDecoder('utf-8').decode(content)], { type: "text/plain" })
+      const element = document.createElement('a');
+      element.href = URL.createObjectURL(downloadFile)
+      element.download = `result-${fileName}`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    }
   };
-
 
 
   return (
@@ -351,7 +378,7 @@ const App: React.FC = () => {
         </label>
         <div className="w-full">
           <pre className="whitespace-pre-wrap overflow-x-auto break-words">
-            {result}
+            {resultShow}
           </pre>
       </div>
       </div>
