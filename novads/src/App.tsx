@@ -246,7 +246,7 @@ const App: React.FC = () => {
       document.body.removeChild(element);
     }
     else {
-      const downloadFile = new Blob([new TextDecoder('utf-8').decode(content)], { type: "text/plain" })
+      const downloadFile = new Blob([content], { type: "application/octet-stream" })
       const element = document.createElement('a');
       element.href = URL.createObjectURL(downloadFile)
       element.download = `result-${fileName}`;
