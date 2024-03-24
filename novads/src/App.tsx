@@ -73,16 +73,16 @@ const App: React.FC = () => {
   const binaryArrayToUint8Array = (binaryArray: number[]): Uint8Array => {
     const byteLength = binaryArray.length / 8;
     const uint8Array = new Uint8Array(byteLength);
-  
+
     for (let i = 0; i < binaryArray.length; i++) {
       const byteIndex = Math.floor(i / 8);
       const bitOffset = i % 8;
-  
+
       if (binaryArray[i] === 1) {
         uint8Array[byteIndex] |= (1 << (7 - bitOffset));
       }
     }
-  
+
     return uint8Array;
   };
 
@@ -107,7 +107,7 @@ const App: React.FC = () => {
         'key-array': textToBinary(key),
         'encrypt': true
       };
-    } 
+    }
     else {
       if (file) {
         requestData = {
@@ -132,7 +132,7 @@ const App: React.FC = () => {
       if (inputType === 'text') {
         setResult(response.data['result-array']);
         setResultShow(btoa(binaryToText(response.data['result-array'])))
-      } 
+      }
       else {
         setResult(response.data['result-array']);
         if (response.data['result-array'].length > 2000) {
@@ -167,7 +167,7 @@ const App: React.FC = () => {
         'key-array': textToBinary(key),
         'encrypt': false
       };
-    } 
+    }
     else {
       if (file) {
         requestData = {
@@ -192,7 +192,7 @@ const App: React.FC = () => {
       if (inputType === 'text') {
         setResult(response.data['result-array']);
         setResultShow(binaryToText(response.data['result-array']))
-      } 
+      }
       else {
         setResult(response.data['result-array']);
         if (response.data['result-array'].length > 2000) {
@@ -219,7 +219,7 @@ const App: React.FC = () => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    
+
     if (file) {
       setFileType(file.type)
       setFileName(file.name)
@@ -373,8 +373,9 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex flex-col mb-4">
+        Duration: {duration ?? 0} ms
         <label htmlFor="ciphertext" className="mb-2 text-lg">
-          Result: {duration ?? 0} ms
+          Result:
         </label>
         <div className="w-full">
           <pre className="whitespace-pre-wrap overflow-x-auto break-words">
