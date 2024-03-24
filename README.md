@@ -1,5 +1,5 @@
-# Nova DS Modern Block Cipher
-> Frontend side of Nova DS Modern Block Cipher Web. Nova DS Modern Block Cipher is a modern encryption and decryption tool that provides various block cipher modes such as ECB, CBC, CFB, OFB, and Counter. It offers both text and file encryption and decryption functionalities.
+# NovaDS Modern Block Cipher
+> Frontend side of NovaDS Modern Block Cipher Web. NovaDS Modern Block Cipher is a modern encryption and decryption tool that provides various block cipher modes such as ECB, CBC, CFB, OFB, and Counter. It offers both text and file encryption and decryption functionalities.
 
 ## Features
 
